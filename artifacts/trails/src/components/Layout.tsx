@@ -1,12 +1,12 @@
 import { Link } from "wouter";
-import { motion } from "framer-motion";
-import { Compass, Users, MapPin, Settings } from "lucide-react";
+import { useEffect } from "react";
 
 const navItems = [
-  { name: "Interactive", href: "/", icon: Compass, label: "Explore" },
-  { name: "Community", href: "/community", icon: Users, label: "Community" },
-  { name: "Map", href: "/map", icon: MapPin, label: "Map" },
-  { name: "Settings", href: "/settings", icon: Settings, label: "Settings" },
+  { page: "Entertainment", href: "/entertainment", label: "Szórakozás", icon: "🎮" },
+  { page: "Interactive", href: "/interactive", label: "Felfedezés", icon: "🧭" },
+  { page: "Map", href: "/", label: "Térkép", icon: "📍" },
+  { page: "Community", href: "/community", label: "Közösség", icon: "👥" },
+  { page: "Profile", href: "/profile", label: "Profil", icon: "👤" },
 ];
 
 interface LayoutProps {
@@ -15,58 +15,40 @@ interface LayoutProps {
 }
 
 export default function Layout({ children, currentPageName }: LayoutProps) {
+  useEffect(() => {
+    document.title = "Természet újratervezve";
+  }, []);
+
   return (
-    <div className="min-h-screen bg-[#F5F1EB]">
+    <div style={{ backgroundColor: "#DAD7CD", minHeight: "100vh" }}>
       <main>{children}</main>
 
-      <div className="fixed bottom-0 left-0 right-0 z-50 px-5 pb-5 pointer-events-none">
-        <motion.nav
-          initial={{ y: 100, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="pointer-events-auto"
-        >
-          <div className="bg-[#2D3436] rounded-2xl shadow-2xl shadow-[#2D3436]/30 px-3 py-2">
-            <div className="flex items-center justify-around">
-              {navItems.map((item) => {
-                const isActive = currentPageName === item.name;
-                return (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className="relative flex flex-col items-center py-2 px-4 group"
-                  >
-                    {isActive && (
-                      <motion.div
-                        layoutId="activeTab"
-                        className="absolute inset-0 bg-[#1B4332] rounded-xl"
-                        transition={{ type: "spring", duration: 0.5 }}
-                      />
-                    )}
-                    <div className="relative z-10 flex flex-col items-center">
-                      <item.icon
-                        className={`w-5 h-5 transition-colors ${
-                          isActive
-                            ? "text-white"
-                            : "text-white/50 group-hover:text-white/80"
-                        }`}
-                      />
-                      <span
-                        className={`text-[10px] mt-1 transition-colors ${
-                          isActive
-                            ? "text-white font-medium"
-                            : "text-white/50 group-hover:text-white/80"
-                        }`}
-                      >
-                        {item.label}
-                      </span>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        </motion.nav>
+      <div style={{ position: "fixed", bottom: "20px", left: "20px", right: "20px", zIndex: 1000 }}>
+        <nav style={{ backgroundColor: "#344E41", borderRadius: "15px", padding: "10px", display: "flex", justifyContent: "space-around" }}>
+          {navItems.map((item) => {
+            const isActive = currentPageName === item.page;
+            return (
+              <Link
+                key={item.page}
+                href={item.href}
+                style={{
+                  textDecoration: "none",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  padding: "8px 12px",
+                  borderRadius: "10px",
+                  backgroundColor: isActive ? "#588157" : "transparent",
+                }}
+              >
+                <span style={{ fontSize: "18px" }}>{item.icon}</span>
+                <span style={{ fontSize: "10px", marginTop: "3px", color: isActive ? "#DAD7CD" : "rgba(255,255,255,0.5)" }}>
+                  {item.label}
+                </span>
+              </Link>
+            );
+          })}
+        </nav>
       </div>
     </div>
   );

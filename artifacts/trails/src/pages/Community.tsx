@@ -1,184 +1,177 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
-import { Users, Heart, MessageCircle, Share2, Camera, Send } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { Heart, MessageCircle, Share2, Send, Users, Plus } from "lucide-react";
 
-const communityPosts = [
+const initialPosts = [
   {
     id: 1,
-    author: "Sarah M.",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&q=80",
-    time: "2h ago",
-    content:
-      "Just completed an amazing sunrise hike! The views were absolutely breathtaking. Can't wait for more routes to be added! 🏔️",
-    image: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&q=80",
+    author_name: "Kovács Péter",
+    created_date: "2 órája",
+    content: "Ma megmásztuk a Nagykőhavast! A kilátás lélegzetelállító volt! 🏔️",
     likes: 24,
-    comments: 5,
+    image: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&q=80",
   },
   {
     id: 2,
-    author: "Mike R.",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&q=80",
-    time: "5h ago",
-    content:
-      "Looking for hiking buddies this weekend! Anyone interested in exploring some trails together?",
-    image: null,
+    author_name: "Nagy Kata",
+    created_date: "5 órája",
+    content: "Keresnék túratársakat erre a hétvégére! Ki jön a Scropoasa tóhoz? 🏕️",
     likes: 12,
-    comments: 8,
+    image: null,
   },
   {
     id: 3,
-    author: "Emma L.",
-    avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&q=80",
-    time: "1d ago",
-    content:
-      "Pro tip: Always bring extra water and snacks, even for shorter hikes. The mountain weather can be unpredictable! 💧🥾",
-    image: "https://images.unsplash.com/photo-1551632811-561732d1e306?w=800&q=80",
+    author_name: "Szabó Gábor",
+    created_date: "1 napja",
+    content: "Profi tipp: Mindig vigyél extra vizet és nassolnivalót, még rövidebb túrákra is! 💧🥾",
     likes: 45,
-    comments: 12,
+    image: "https://images.unsplash.com/photo-1551632811-561732d1e306?w=800&q=80",
   },
 ];
 
 export default function Community() {
-  const [newPost, setNewPost] = useState("");
+  const [posts, setPosts] = useState(initialPosts);
+  const [postText, setPostText] = useState("");
   const [likedPosts, setLikedPosts] = useState<Set<number>>(new Set());
 
-  const toggleLike = (id: number) => {
+  const handleCreatePost = () => {
+    if (!postText.trim()) return;
+    const newPost = {
+      id: Date.now(),
+      author_name: "Te",
+      created_date: "Most",
+      content: postText,
+      likes: 0,
+      image: null,
+    };
+    setPosts([newPost, ...posts]);
+    setPostText("");
+  };
+
+  const handleLike = (postId: number) => {
     setLikedPosts((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(postId)) {
+        next.delete(postId);
+        setPosts((p) => p.map((post) => post.id === postId ? { ...post, likes: post.likes - 1 } : post));
+      } else {
+        next.add(postId);
+        setPosts((p) => p.map((post) => post.id === postId ? { ...post, likes: post.likes + 1 } : post));
+      }
       return next;
     });
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F1EB] pb-28">
-      <div className="bg-[#1B4332] px-5 pt-12 pb-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="flex items-center justify-between"
-        >
+    <div style={{ backgroundColor: "#DAD7CD", minHeight: "100vh", paddingBottom: "100px" }}>
+      {/* header */}
+      <div style={{
+        position: "relative",
+        overflow: "hidden",
+        padding: "40px 20px 30px 20px",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.1)"
+      }}>
+        <img
+          src="https://images.unsplash.com/photo-1469521669194-babb45599def?w=1200&q=80"
+          style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center" }}
+          alt=""
+        />
+        <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(52, 78, 65, 0.7)" }} />
+        <div style={{ position: "relative", zIndex: 1, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
-            <h1 className="text-2xl font-light text-white tracking-wide">Community</h1>
-            <p className="text-white/60 text-sm mt-1">Connect with fellow hikers</p>
+            <h1 style={{ color: "white", fontSize: "24px", margin: 0 }}>Közösség</h1>
+            <p style={{ color: "rgba(255,255,255,0.8)", fontSize: "14px", marginTop: "5px" }}>Kapcsolódj túratársaidhoz</p>
           </div>
-          <div className="bg-white/10 rounded-full p-3">
-            <Users className="w-5 h-5 text-white" />
+          <div style={{ backgroundColor: "rgba(255,255,255,0.15)", borderRadius: "50%", padding: "12px" }}>
+            <Users size={20} color="white" />
           </div>
-        </motion.div>
+        </div>
       </div>
 
-      <div className="px-5 -mt-4 relative z-10">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-        >
-          <Card className="p-4 border-0 shadow-lg rounded-2xl">
-            <div className="flex gap-3">
-              <Avatar className="w-10 h-10">
-                <AvatarFallback className="bg-[#C17F59] text-white text-xs">You</AvatarFallback>
-              </Avatar>
-              <div className="flex-1">
-                <Textarea
-                  placeholder="Share your hiking experience..."
-                  value={newPost}
-                  onChange={(e) => setNewPost(e.target.value)}
-                  className="border-0 bg-[#F5F1EB]/50 resize-none focus-visible:ring-1 focus-visible:ring-[#C17F59] rounded-xl text-sm"
-                  rows={2}
-                />
-                <div className="flex items-center justify-between mt-3">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-[#2D3436]/50 hover:text-[#C17F59]"
-                  >
-                    <Camera className="w-4 h-4 mr-2" />
-                    Photo
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="bg-[#1B4332] hover:bg-[#1B4332]/90 text-white rounded-full px-4"
-                    disabled={!newPost.trim()}
-                  >
-                    <Send className="w-4 h-4 mr-2" />
-                    Post
-                  </Button>
+      {/* create post */}
+      <div style={{ padding: "20px 20px 0" }}>
+        <div style={{ backgroundColor: "white", borderRadius: "15px", padding: "15px", boxShadow: "0 2px 10px rgba(0,0,0,0.1)" }}>
+          <textarea
+            value={postText}
+            onChange={(e) => setPostText(e.target.value)}
+            placeholder="Oszd meg túraélményedet..."
+            style={{
+              width: "100%",
+              border: "1px solid #e0e0e0",
+              borderRadius: "10px",
+              padding: "10px",
+              fontSize: "14px",
+              resize: "none",
+              outline: "none",
+              boxSizing: "border-box",
+              fontFamily: "inherit"
+            }}
+            rows={3}
+          />
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "10px" }}>
+            <button
+              onClick={handleCreatePost}
+              disabled={!postText.trim()}
+              style={{
+                padding: "10px 20px",
+                backgroundColor: postText.trim() ? "#344E41" : "#ccc",
+                color: "white",
+                border: "none",
+                borderRadius: "10px",
+                cursor: postText.trim() ? "pointer" : "default",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                fontSize: "14px"
+              }}
+            >
+              <Send size={16} />
+              Közzétesz
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* posts */}
+      <div style={{ padding: "20px" }}>
+        {posts.map((post) => (
+          <div key={post.id} style={{ backgroundColor: "white", borderRadius: "15px", marginBottom: "15px", overflow: "hidden", boxShadow: "0 2px 10px rgba(0,0,0,0.1)" }}>
+            <div style={{ padding: "15px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
+                <div style={{ width: "40px", height: "40px", borderRadius: "50%", backgroundColor: "#588157", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: "bold", flexShrink: 0 }}>
+                  {post.author_name[0]}
+                </div>
+                <div>
+                  <p style={{ margin: 0, fontWeight: "bold", color: "#344E41", fontSize: "14px" }}>{post.author_name}</p>
+                  <p style={{ margin: 0, color: "#888", fontSize: "12px" }}>{post.created_date}</p>
                 </div>
               </div>
+              <p style={{ margin: 0, color: "#444", fontSize: "14px", lineHeight: "1.6" }}>{post.content}</p>
             </div>
-          </Card>
-        </motion.div>
-      </div>
 
-      <div className="px-5 mt-5 space-y-4">
-        {communityPosts.map((post, index) => (
-          <motion.div
-            key={post.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.2 + index * 0.1 }}
-          >
-            <Card className="border-0 shadow-sm rounded-2xl overflow-hidden">
-              <div className="p-4">
-                <div className="flex items-center gap-3">
-                  <Avatar className="w-10 h-10">
-                    <AvatarImage src={post.avatar} />
-                    <AvatarFallback className="bg-[#C17F59] text-white">
-                      {post.author[0]}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <h3 className="font-medium text-[#2D3436] text-sm">{post.author}</h3>
-                    <p className="text-xs text-[#2D3436]/50">{post.time}</p>
-                  </div>
-                </div>
-                <p className="mt-3 text-sm text-[#2D3436]/80 leading-relaxed">{post.content}</p>
-              </div>
+            {post.image && (
+              <img src={post.image} alt="Post" style={{ width: "100%", height: "200px", objectFit: "cover" }} />
+            )}
 
-              {post.image && (
-                <div className="relative h-48">
-                  <img
-                    src={post.image}
-                    alt="Post"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              )}
-
-              <div className="p-4 flex items-center gap-6 border-t border-[#F5F1EB]">
-                <button
-                  onClick={() => toggleLike(post.id)}
-                  className={`flex items-center gap-2 transition-colors ${
-                    likedPosts.has(post.id)
-                      ? "text-[#C17F59]"
-                      : "text-[#2D3436]/60 hover:text-[#C17F59]"
-                  }`}
-                >
-                  <Heart
-                    className="w-4 h-4"
-                    fill={likedPosts.has(post.id) ? "currentColor" : "none"}
-                  />
-                  <span className="text-xs">
-                    {post.likes + (likedPosts.has(post.id) ? 1 : 0)}
-                  </span>
-                </button>
-                <button className="flex items-center gap-2 text-[#2D3436]/60 hover:text-[#C17F59] transition-colors">
-                  <MessageCircle className="w-4 h-4" />
-                  <span className="text-xs">{post.comments}</span>
-                </button>
-                <button className="flex items-center gap-2 text-[#2D3436]/60 hover:text-[#C17F59] transition-colors ml-auto">
-                  <Share2 className="w-4 h-4" />
-                </button>
-              </div>
-            </Card>
-          </motion.div>
+            <div style={{ padding: "12px 15px", display: "flex", gap: "20px", borderTop: "1px solid #f0f0f0" }}>
+              <button
+                onClick={() => handleLike(post.id)}
+                style={{
+                  background: "none", border: "none",
+                  color: likedPosts.has(post.id) ? "#e74c3c" : "#888",
+                  cursor: "pointer", display: "flex", alignItems: "center", gap: "6px", fontSize: "14px"
+                }}
+              >
+                <Heart size={18} fill={likedPosts.has(post.id) ? "#e74c3c" : "none"} />
+                {post.likes}
+              </button>
+              <button style={{ background: "none", border: "none", color: "#888", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px", fontSize: "14px" }}>
+                <MessageCircle size={18} />
+              </button>
+              <button style={{ background: "none", border: "none", color: "#888", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px", fontSize: "14px" }}>
+                <Share2 size={18} />
+              </button>
+            </div>
+          </div>
         ))}
       </div>
     </div>
