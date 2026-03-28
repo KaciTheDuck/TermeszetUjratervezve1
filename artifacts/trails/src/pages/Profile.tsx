@@ -14,22 +14,22 @@ export default function Profile() {
         backgroundImage: "url('https://images.unsplash.com/photo-1551632811-561732d1e306?w=1200&q=80')",
         backgroundSize: "cover",
         backgroundPosition: "center",
-        padding: "40px 20px 80px 20px",
+        padding: "40px 20px 100px 20px",
         position: "relative"
       }}>
         <h1 style={{ color: "white", fontSize: "24px", margin: 0, fontWeight: "bold", textShadow: "0 2px 10px rgba(0,0,0,0.3)" }}>Profilom</h1>
       </div>
 
       {/* profile card */}
-      <div style={{ padding: "0 20px", marginTop: "-60px" }}>
-        <div style={{ backgroundColor: "white", borderRadius: "20px", padding: "20px", boxShadow: "0 4px 20px rgba(0,0,0,0.15)" }}>
+      <div style={{ padding: "0 20px", marginTop: "-50px" }}>
+        <div style={{ backgroundColor: "white", borderRadius: "20px", padding: "20px", boxShadow: "0 4px 20px rgba(0,0,0,0.15)", position: "relative", zIndex: 2 }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: "15px" }}>
             <div style={{
-              width: "80px", height: "80px", borderRadius: "50%",
+              width: "70px", height: "70px", borderRadius: "50%",
               backgroundColor: "#588157",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: "32px", color: "white", flexShrink: 0,
-              border: "4px solid white", boxShadow: "0 2px 10px rgba(0,0,0,0.2)"
+              fontSize: "28px", color: "white", flexShrink: 0,
+              border: "3px solid white", boxShadow: "0 2px 10px rgba(0,0,0,0.2)"
             }}>🧗</div>
             <div style={{ flex: 1 }}>
               <h2 style={{ margin: 0, color: "#344E41", fontSize: "20px" }}>Túrázó</h2>
