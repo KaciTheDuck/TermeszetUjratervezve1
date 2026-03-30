@@ -187,31 +187,6 @@ export default function MapPage() {
         )}
       </div>
 
-      {/* Trail cards (no route selected) */}
-      {!routeData && (
-        <div style={{ position: "absolute", bottom: "100px", left: "20px", right: "20px", zIndex: 1001, display: "flex", gap: "12px", overflowX: "auto", paddingBottom: "4px" }}>
-          {allTrails.slice(0, 6).map((trail) => (
-            <button
-              key={trail.id}
-              onClick={() => selectTrail(trail)}
-              style={{ minWidth: "180px", backgroundColor: "white", borderRadius: "15px", padding: "10px", border: "none", cursor: "pointer", textAlign: "left", boxShadow: "0 4px 15px rgba(0,0,0,0.15)", flexShrink: 0 }}
-            >
-              <img
-                src={trail.image_url ?? "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=400&q=80"}
-                alt={trail.name}
-                style={{ width: "100%", height: "90px", objectFit: "cover", borderRadius: "8px", marginBottom: "8px" }}
-              />
-              <p style={{ margin: 0, fontWeight: "bold", color: "#344E41", fontSize: "13px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{trail.name}</p>
-              <div style={{ display: "flex", gap: "6px", marginTop: "4px", alignItems: "center" }}>
-                <span style={{ fontSize: "11px", color: "#888" }}>📏 {trail.distance} km</span>
-                <span style={{ fontSize: "10px", padding: "1px 6px", borderRadius: "10px", backgroundColor: difficultyColor[trail.difficulty] ?? "#888", color: "white" }}>
-                  {trail.difficulty}
-                </span>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* Route detail panel */}
       {routeData && (
