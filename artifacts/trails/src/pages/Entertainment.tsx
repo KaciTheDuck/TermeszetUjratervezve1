@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 
 export default function Entertainment() {
   const [, navigate] = useLocation();
-  const [showLinks, setShowLinks] = useState(false);
+  const [showLiterature, setShowLiterature] = useState(false);
 
   return (
     <div style={{ backgroundColor: "#DAD7CD", minHeight: "100vh", paddingBottom: "100px" }}>
@@ -60,8 +60,8 @@ export default function Entertainment() {
           </button>
         </div>
 
-        {/* water quality */}
-        <div style={{ backgroundColor: "white", borderRadius: "15px", padding: "20px", boxShadow: "0 2px 10px rgba(0,0,0,0.1)", marginBottom: "20px" }}>
+        {/* water quality — includes Irodalom */}
+        <div style={{ backgroundColor: "white", borderRadius: "15px", padding: "20px", boxShadow: "0 2px 10px rgba(0,0,0,0.1)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "15px", marginBottom: "15px" }}>
             <div style={{ fontSize: "30px" }}>💧</div>
             <div>
@@ -72,7 +72,9 @@ export default function Entertainment() {
           <p style={{ color: "#666", fontSize: "14px", lineHeight: "1.6", marginBottom: "15px" }}>
             Tanulj meg biológiai vízminősítést végezni a BISEL módszerrel!
           </p>
-          <div style={{ display: "flex", gap: "10px" }}>
+
+          {/* primary buttons */}
+          <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
             <button
               onClick={() => navigate("/WaterQualitySteps")}
               style={{ flex: 1, padding: "12px", backgroundColor: "#3A5A40", color: "white", border: "none", borderRadius: "10px", cursor: "pointer", fontSize: "14px" }}
@@ -86,54 +88,65 @@ export default function Entertainment() {
               BISEL Jegyzőkönyv
             </button>
           </div>
+
           <button
             onClick={() => navigate("/TaskSheet")}
-            style={{ width: "100%", marginTop: "10px", padding: "12px", backgroundColor: "#A3B18A", color: "white", border: "none", borderRadius: "10px", cursor: "pointer", fontSize: "14px" }}
+            style={{ width: "100%", padding: "12px", backgroundColor: "#A3B18A", color: "white", border: "none", borderRadius: "10px", cursor: "pointer", fontSize: "14px", marginBottom: "10px" }}
           >
             📊 BISEL Táblázat
           </button>
-        </div>
 
-        {/* resources */}
-        <div style={{ backgroundColor: "white", borderRadius: "15px", padding: "20px", boxShadow: "0 2px 10px rgba(0,0,0,0.1)" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: showLinks ? "15px" : "0" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-              <div style={{ fontSize: "30px" }}>📚</div>
-              <div>
-                <h2 style={{ margin: 0, color: "#344E41", fontSize: "18px" }}>Irodalom</h2>
-                <p style={{ margin: "5px 0 0 0", color: "#3A5A40", fontSize: "12px" }}>Ajánlott olvasnivalók</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowLinks(!showLinks)}
-              style={{ background: "none", border: "none", cursor: "pointer", fontSize: "20px", color: "#A3B18A" }}
-            >
-              {showLinks ? "▲" : "▼"}
-            </button>
-          </div>
-          {showLinks && (
-            <div>
-              <div style={{ marginBottom: "15px" }}>
-                <p style={{ margin: "0 0 8px 0", fontSize: "14px", color: "#344E41", fontWeight: "500" }}>
+          {/* irodalom — expandable, same row as the others */}
+          <button
+            onClick={() => setShowLiterature(!showLiterature)}
+            style={{
+              width: "100%", padding: "12px",
+              backgroundColor: showLiterature ? "#f0f0f0" : "white",
+              color: "#344E41",
+              border: "1px solid #ddd",
+              borderRadius: "10px",
+              cursor: "pointer",
+              fontSize: "14px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              transition: "background-color 0.2s"
+            }}
+          >
+            <span>📚 Irodalom</span>
+            <span style={{ fontSize: "12px", color: "#A3B18A" }}>{showLiterature ? "▲" : "▼"}</span>
+          </button>
+
+          {showLiterature && (
+            <div style={{ marginTop: "12px", padding: "12px", backgroundColor: "#f8f9fa", borderRadius: "10px" }}>
+              <div style={{ marginBottom: "12px" }}>
+                <p style={{ margin: "0 0 6px 0", fontSize: "14px", color: "#344E41", fontWeight: "500" }}>
                   Kriska György: Édesvízi gerinctelen állatok
                 </p>
-                <a href="https://library.hungaricana.hu/hu/view/VizugyiKonyvek_129/?pg=0&layout=s" target="_blank" rel="noopener noreferrer"
-                  style={{ color: "#588157", fontSize: "13px", textDecoration: "underline", wordBreak: "break-all" }}>
+                <a
+                  href="https://library.hungaricana.hu/hu/view/VizugyiKonyvek_129/?pg=0&layout=s"
+                  target="_blank" rel="noopener noreferrer"
+                  style={{ color: "#588157", fontSize: "13px", textDecoration: "underline", wordBreak: "break-all" }}
+                >
                   library.hungaricana.hu/hu/view/VizugyiKonyvek_129
                 </a>
               </div>
               <div>
-                <p style={{ margin: "0 0 8px 0", fontSize: "14px", color: "#344E41", fontWeight: "500" }}>
+                <p style={{ margin: "0 0 6px 0", fontSize: "14px", color: "#344E41", fontWeight: "500" }}>
                   BISEL - A biológiai vízminősítés
                 </p>
-                <a href="https://bisel.hu/a-bisel-rol-roviden" target="_blank" rel="noopener noreferrer"
-                  style={{ color: "#588157", fontSize: "13px", textDecoration: "underline" }}>
+                <a
+                  href="https://bisel.hu/a-bisel-rol-roviden"
+                  target="_blank" rel="noopener noreferrer"
+                  style={{ color: "#588157", fontSize: "13px", textDecoration: "underline" }}
+                >
                   bisel.hu/a-bisel-rol-roviden
                 </a>
               </div>
             </div>
           )}
         </div>
+
       </div>
     </div>
   );
