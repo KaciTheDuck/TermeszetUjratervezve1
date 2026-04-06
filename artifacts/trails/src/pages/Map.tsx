@@ -1,16 +1,12 @@
-import { useEffect, useState } from "react";
-import { MapContainer, TileLayer, Polyline, Marker, Popup } from "react-leaflet";
-import { Search, X, ChevronUp, MapPin } from "lucide-react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
+import "leaflet.markercluster";
+import { Search, X, MapPin, Navigation, NavigationOff } from "lucide-react";
 
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-});
-
+// ─── Types ────────────────────────────────────────────────────────────────────
 interface Trail {
   id: number;
   name: string;
@@ -28,55 +24,341 @@ interface Trail {
   image_url: string | null;
 }
 
-const difficultyColor: Record<string, string> = {
+const DIFFICULTY_COLOR: Record<string, string> = {
   "Könnyű": "#588157",
-  "Közepes": "#A3B18A",
+  "Közepes": "#e9a826",
   "Nehéz": "#E07B39",
   "Nagyon nehéz": "#C0392B",
 };
 
-export default function MapPage() {
-  const [allTrails, setAllTrails] = useState<Trail[]>([]);
-  const [routeData, setRouteData] = useState<Trail | null>(null);
-  const [showPanel, setShowPanel] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<Trail[]>([]);
-  const [showSearch, setShowSearch] = useState(false);
-  const [mapKey, setMapKey] = useState("default");
+// ─── Inject global CSS once ───────────────────────────────────────────────────
+const CSS = `
+  @keyframes gps-pulse {
+    0%   { transform: scale(1);   opacity: 1; }
+    70%  { transform: scale(2.8); opacity: 0; }
+    100% { transform: scale(1);   opacity: 0; }
+  }
+  .gps-dot-wrap { position: relative; width: 20px; height: 20px; }
+  .gps-dot {
+    position: absolute; inset: 0; margin: auto;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: #2563eb; border: 2px solid white;
+    box-shadow: 0 0 6px rgba(37,99,235,0.6);
+  }
+  .gps-ring {
+    position: absolute; inset: 0; margin: auto;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: rgba(37,99,235,0.35);
+    animation: gps-pulse 1.8s ease-out infinite;
+  }
+  .trail-pin {
+    width: 32px; height: 36px;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .trail-pin-circle {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 3px solid white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; line-height: 1;
+  }
+  .trail-pin-tail {
+    width: 2px; height: 8px;
+    background: white; border-radius: 1px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  }
+  .trail-pin-selected .trail-pin-circle {
+    width: 34px; height: 34px;
+    box-shadow: 0 0 0 4px rgba(88,129,87,0.4), 0 2px 10px rgba(0,0,0,0.4);
+  }
+  .marker-cluster-small  { background-color: rgba(88,129,87,0.6) !important; }
+  .marker-cluster-small div  { background-color: #344E41 !important; color: white !important; font-weight: bold !important; }
+  .marker-cluster-medium { background-color: rgba(163,177,138,0.6) !important; }
+  .marker-cluster-medium div { background-color: #588157 !important; color: white !important; font-weight: bold !important; }
+  .marker-cluster-large  { background-color: rgba(52,78,65,0.6) !important; }
+  .marker-cluster-large div  { background-color: #3A5A40 !important; color: white !important; font-weight: bold !important; }
+`;
 
-  // Load all trails for search
+function injectCSS() {
+  if (document.getElementById("trail-map-css")) return;
+  const s = document.createElement("style");
+  s.id = "trail-map-css";
+  s.textContent = CSS;
+  document.head.appendChild(s);
+}
+
+// ─── Icon factories ───────────────────────────────────────────────────────────
+function trailIcon(difficulty: string, selected = false) {
+  const color = DIFFICULTY_COLOR[difficulty] ?? "#888";
+  const emoji = difficulty === "Könnyű" ? "🟢" : difficulty === "Közepes" ? "🟡" : difficulty === "Nehéz" ? "🟠" : "🔴";
+  return L.divIcon({
+    className: "",
+    html: `<div class="trail-pin ${selected ? "trail-pin-selected" : ""}">
+             <div class="trail-pin-circle" style="background:${color}">${emoji}</div>
+             <div class="trail-pin-tail"></div>
+           </div>`,
+    iconSize: [32, 36],
+    iconAnchor: [16, 36],
+    popupAnchor: [0, -36],
+  });
+}
+
+const gpsIcon = L.divIcon({
+  className: "",
+  html: `<div class="gps-dot-wrap"><div class="gps-ring"></div><div class="gps-dot"></div></div>`,
+  iconSize: [20, 20],
+  iconAnchor: [10, 10],
+});
+
+// ─── Component ────────────────────────────────────────────────────────────────
+export default function MapPage() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef       = useRef<L.Map | null>(null);
+  const clusterRef   = useRef<L.MarkerClusterGroup | null>(null);
+  const gpsMarkerRef = useRef<L.Marker | null>(null);
+  const polylineRef  = useRef<L.Polyline | null>(null);
+  const poiLayerRef  = useRef<L.LayerGroup | null>(null);
+  const watchIdRef   = useRef<number | null>(null);
+  const markerMapRef = useRef<Map<number, L.Marker>>(new Map());
+
+  const [allTrails,    setAllTrails]    = useState<Trail[]>([]);
+  const [selectedTrail, setSelectedTrail] = useState<Trail | null>(null);
+  const [showPanel,    setShowPanel]    = useState(false);
+  const [searchQuery,  setSearchQuery]  = useState("");
+  const [searchResults,setSearchResults]= useState<Trail[]>([]);
+  const [showSearch,   setShowSearch]   = useState(false);
+  const [gpsActive,    setGpsActive]    = useState(false);
+  const [gpsError,     setGpsError]     = useState<string | null>(null);
+  const [gpsFollowing, setGpsFollowing] = useState(false);
+
+  // ── 1. Init map ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    injectCSS();
+    if (!containerRef.current || mapRef.current) return;
+
+    const map = L.map(containerRef.current, {
+      center: [45.9432, 24.9668],
+      zoom: 7,
+      zoomControl: false,
+      attributionControl: true,
+    });
+
+    L.tileLayer("https://tile.opentopomap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenTopoMap",
+      maxZoom: 17,
+    }).addTo(map);
+
+    L.tileLayer("https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png", {
+      attribution: "&copy; Waymarked Trails",
+      maxZoom: 17,
+      opacity: 0.65,
+    }).addTo(map);
+
+    L.control.zoom({ position: "bottomright" }).addTo(map);
+
+    const cluster = (L as any).markerClusterGroup({
+      chunkedLoading: true,
+      maxClusterRadius: 60,
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false,
+      animate: true,
+    }) as L.MarkerClusterGroup;
+
+    cluster.addTo(map);
+    clusterRef.current = cluster;
+
+    poiLayerRef.current = L.layerGroup().addTo(map);
+    mapRef.current = map;
+
+    return () => {
+      if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+      map.remove();
+      mapRef.current = null;
+    };
+  }, []);
+
+  // ── 2. Load trails → cluster markers ──────────────────────────────────────
   useEffect(() => {
     fetch("/api/trails")
       .then((r) => r.json())
-      .then(setAllTrails)
+      .then((trails: Trail[]) => {
+        setAllTrails(trails);
+
+        const cluster = clusterRef.current;
+        if (!cluster) return;
+        cluster.clearLayers();
+        markerMapRef.current.clear();
+
+        trails.forEach((trail) => {
+          if (!trail.start_lat || !trail.start_lon) return;
+
+          const marker = L.marker([trail.start_lat, trail.start_lon], {
+            icon: trailIcon(trail.difficulty),
+          });
+
+          marker.bindTooltip(trail.name, { direction: "top", offset: [0, -32], opacity: 0.95 });
+          marker.on("click", () => handleSelectTrail(trail));
+
+          cluster.addLayer(marker);
+          markerMapRef.current.set(trail.id, marker);
+        });
+      })
       .catch(console.error);
   }, []);
 
-  // Load trail from URL query param
+  // ── 3. Load trail from URL ?trailId= ──────────────────────────────────────
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const trailId = params.get("trailId");
-    if (trailId) {
-      fetch(`/api/trails/${trailId}`)
-        .then((r) => r.json())
-        .then((trail: Trail) => {
-          setRouteData(trail);
-          setShowPanel(true);
-          setMapKey(trail.id.toString());
-        })
-        .catch(console.error);
+    if (!trailId) return;
+
+    fetch(`/api/trails/${trailId}`)
+      .then((r) => r.json())
+      .then((trail: Trail) => handleSelectTrail(trail))
+      .catch(console.error);
+  }, []);
+
+  // ── Select trail ──────────────────────────────────────────────────────────
+  const handleSelectTrail = useCallback((trail: Trail) => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    // Reset previously selected marker icon
+    setSelectedTrail((prev) => {
+      if (prev) {
+        const oldMarker = markerMapRef.current.get(prev.id);
+        if (oldMarker) oldMarker.setIcon(trailIcon(prev.difficulty, false));
+      }
+      return trail;
+    });
+
+    // Highlight new marker
+    const marker = markerMapRef.current.get(trail.id);
+    if (marker) marker.setIcon(trailIcon(trail.difficulty, true));
+
+    // Clear old polyline + POIs
+    if (polylineRef.current) { polylineRef.current.remove(); polylineRef.current = null; }
+    if (poiLayerRef.current) poiLayerRef.current.clearLayers();
+
+    // Draw route polyline
+    if (trail.coordinates?.length > 1) {
+      polylineRef.current = L.polyline(trail.coordinates, {
+        color: "#344E41", weight: 4, opacity: 0.9,
+        lineCap: "round", lineJoin: "round",
+      }).addTo(map);
+    }
+
+    // Draw POI markers
+    if (poiLayerRef.current && trail.points_of_interest?.length) {
+      trail.points_of_interest.forEach((poi) => {
+        const poiMarker = L.marker([poi.lat, poi.lon], {
+          icon: L.divIcon({
+            className: "",
+            html: `<div style="background:#A3B18A;border:2px solid white;border-radius:50%;width:16px;height:16px;box-shadow:0 1px 4px rgba(0,0,0,0.3)"></div>`,
+            iconSize: [16, 16], iconAnchor: [8, 8],
+          }),
+        });
+        poiMarker.bindPopup(`<b>${poi.name}</b>${poi.description ? `<br><span style="font-size:12px;color:#666">${poi.description}</span>` : ""}`);
+        poiLayerRef.current!.addLayer(poiMarker);
+      });
+    }
+
+    // Fly to trail
+    if (trail.start_lat && trail.start_lon) {
+      map.flyTo([trail.start_lat, trail.start_lon], 12, { animate: true, duration: 1 });
+    }
+    if (trail.coordinates?.length > 1) {
+      setTimeout(() => {
+        if (polylineRef.current && mapRef.current) {
+          mapRef.current.fitBounds(polylineRef.current.getBounds(), { padding: [60, 60], animate: true });
+        }
+      }, 600);
+    }
+
+    setGpsFollowing(false);
+    setShowPanel(true);
+  }, []);
+
+  // ── Clear selected trail ──────────────────────────────────────────────────
+  const clearTrail = useCallback(() => {
+    if (selectedTrail) {
+      const marker = markerMapRef.current.get(selectedTrail.id);
+      if (marker) marker.setIcon(trailIcon(selectedTrail.difficulty, false));
+    }
+    if (polylineRef.current) { polylineRef.current.remove(); polylineRef.current = null; }
+    if (poiLayerRef.current) poiLayerRef.current.clearLayers();
+    setSelectedTrail(null);
+    setShowPanel(false);
+    mapRef.current?.flyTo([45.9432, 24.9668], 7, { animate: true, duration: 1.2 });
+  }, [selectedTrail]);
+
+  // ── GPS tracking ──────────────────────────────────────────────────────────
+  const toggleGPS = useCallback(() => {
+    if (!navigator.geolocation) { setGpsError("GPS nem elérhető ezen az eszközön"); return; }
+
+    if (gpsActive) {
+      if (watchIdRef.current !== null) { navigator.geolocation.clearWatch(watchIdRef.current); watchIdRef.current = null; }
+      if (gpsMarkerRef.current) { gpsMarkerRef.current.remove(); gpsMarkerRef.current = null; }
+      setGpsActive(false);
+      setGpsFollowing(false);
+      setGpsError(null);
+      return;
+    }
+
+    setGpsError(null);
+    const id = navigator.geolocation.watchPosition(
+      (pos) => {
+        const latlng: L.LatLngExpression = [pos.coords.latitude, pos.coords.longitude];
+        const map = mapRef.current;
+        if (!map) return;
+
+        if (!gpsMarkerRef.current) {
+          gpsMarkerRef.current = L.marker(latlng, { icon: gpsIcon, zIndexOffset: 1000 }).addTo(map);
+        } else {
+          gpsMarkerRef.current.setLatLng(latlng);
+        }
+
+        if (gpsFollowing || !gpsActive) {
+          map.flyTo(latlng, Math.max(map.getZoom(), 13), { animate: true, duration: 1 });
+        }
+
+        setGpsActive(true);
+        setGpsError(null);
+      },
+      (err) => {
+        const msgs: Record<number, string> = {
+          1: "GPS engedély megtagadva",
+          2: "Helyzet nem meghatározható",
+          3: "GPS időtúllépés",
+        };
+        setGpsError(msgs[err.code] ?? "GPS hiba");
+        setGpsActive(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 2000 }
+    );
+
+    watchIdRef.current = id;
+    setGpsActive(true);
+    setGpsFollowing(true);
+  }, [gpsActive, gpsFollowing]);
+
+  const centerOnGPS = useCallback(() => {
+    const marker = gpsMarkerRef.current;
+    const map = mapRef.current;
+    if (marker && map) {
+      map.flyTo(marker.getLatLng(), Math.max(map.getZoom(), 14), { animate: true, duration: 1 });
+      setGpsFollowing(true);
     }
   }, []);
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    if (query.trim().length > 0) {
-      const results = allTrails.filter(
-        (t) =>
-          t.name.toLowerCase().includes(query.toLowerCase()) ||
-          t.location.toLowerCase().includes(query.toLowerCase())
-      );
-      setSearchResults(results);
+  // ── Search ────────────────────────────────────────────────────────────────
+  const handleSearch = (q: string) => {
+    setSearchQuery(q);
+    if (q.trim()) {
+      setSearchResults(allTrails.filter((t) =>
+        t.name.toLowerCase().includes(q.toLowerCase()) ||
+        t.location.toLowerCase().includes(q.toLowerCase())
+      ));
       setShowSearch(true);
     } else {
       setSearchResults([]);
@@ -84,183 +366,157 @@ export default function MapPage() {
     }
   };
 
-  const selectTrail = (trail: Trail) => {
-    setRouteData(trail);
+  const pickSearchResult = (trail: Trail) => {
     setShowSearch(false);
     setSearchQuery("");
-    setShowPanel(true);
-    setMapKey(trail.id.toString());
+    handleSelectTrail(trail);
   };
 
-  const mapCenter: [number, number] =
-    routeData?.start_lat && routeData?.start_lon
-      ? [routeData.start_lat, routeData.start_lon]
-      : [45.9432, 24.9668];
-  const mapZoom = routeData ? 11 : 7;
-
+  // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div style={{ position: "relative", height: "100vh", width: "100%", overflow: "hidden", backgroundColor: "#DAD7CD" }}>
-      {/* Map */}
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 1 }}>
-        <MapContainer
-          center={mapCenter}
-          zoom={mapZoom}
-          style={{ height: "100vh", width: "100%" }}
-          key={mapKey}
-          zoomControl={false}
-        >
-          <TileLayer
-            url="https://tile.opentopomap.org/{z}/{x}/{y}.png"
-            attribution="&copy; OpenTopoMap"
-            maxZoom={17}
-          />
-          <TileLayer
-            url="https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png"
-            attribution="&copy; Waymarked Trails"
-            maxZoom={17}
-            opacity={0.7}
-          />
-          {routeData?.coordinates && routeData.coordinates.length > 1 && (
-            <Polyline
-              positions={routeData.coordinates}
-              color="#344E41"
-              weight={4}
-              opacity={0.85}
-            />
-          )}
-          {routeData?.start_lat && routeData?.start_lon && (
-            <Marker position={[routeData.start_lat, routeData.start_lon]}>
-              <Popup>
-                <b>{routeData.name}</b>
-                <br />
-                Kiindulópont
-              </Popup>
-            </Marker>
-          )}
-          {routeData?.points_of_interest?.map((poi, i) => (
-            <Marker key={i} position={[poi.lat, poi.lon]}>
-              <Popup>
-                <b>{poi.name}</b>
-                {poi.description && <><br />{poi.description}</>}
-              </Popup>
-            </Marker>
-          ))}
-        </MapContainer>
-      </div>
+    <div style={{ position: "relative", height: "100vh", width: "100%", overflow: "hidden" }}>
 
-      {/* Search bar */}
-      <div style={{ position: "absolute", top: "20px", left: "20px", right: "20px", zIndex: 1001 }}>
-        <div style={{ backgroundColor: "white", borderRadius: "15px", padding: "12px 16px", display: "flex", alignItems: "center", gap: "10px", boxShadow: "0 4px 20px rgba(0,0,0,0.15)" }}>
-          <Search size={18} color="#888" />
+      {/* Leaflet map mount point */}
+      <div ref={containerRef} style={{ position: "absolute", inset: 0, zIndex: 1 }} />
+
+      {/* ── Search bar ── */}
+      <div style={{ position: "absolute", top: 20, left: 16, right: 16, zIndex: 1000 }}>
+        <div style={{ backgroundColor: "white", borderRadius: "16px", padding: "10px 14px", display: "flex", alignItems: "center", gap: "10px", boxShadow: "0 4px 20px rgba(0,0,0,0.18)" }}>
+          <Search size={17} color="#888" />
           <input
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
-            placeholder="Keresés útvonalak között..."
+            placeholder="Keresés túraútvonalak között..."
             style={{ flex: 1, border: "none", outline: "none", fontSize: "14px", color: "#344E41", background: "transparent" }}
           />
           {searchQuery && (
             <button onClick={() => { setSearchQuery(""); setShowSearch(false); }} style={{ background: "none", border: "none", cursor: "pointer" }}>
-              <X size={16} color="#888" />
+              <X size={15} color="#888" />
             </button>
           )}
         </div>
 
         {showSearch && searchResults.length > 0 && (
-          <div style={{ backgroundColor: "white", borderRadius: "15px", marginTop: "8px", overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.15)", maxHeight: "280px", overflowY: "auto" }}>
+          <div style={{ backgroundColor: "white", borderRadius: "14px", marginTop: "8px", overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.15)", maxHeight: "260px", overflowY: "auto" }}>
             {searchResults.map((trail) => (
-              <button
-                key={trail.id}
-                onClick={() => selectTrail(trail)}
-                style={{ display: "block", width: "100%", padding: "12px 16px", border: "none", background: "none", textAlign: "left", cursor: "pointer", borderBottom: "1px solid #f0f0f0" }}
-              >
-                <p style={{ margin: 0, fontWeight: "500", color: "#344E41", fontSize: "14px" }}>📍 {trail.name}</p>
-                <p style={{ margin: "2px 0 0 0", fontSize: "12px", color: "#888" }}>{trail.location} · {trail.distance} km · {trail.difficulty}</p>
+              <button key={trail.id} onClick={() => pickSearchResult(trail)}
+                style={{ display: "block", width: "100%", padding: "11px 15px", border: "none", background: "none", textAlign: "left", cursor: "pointer", borderBottom: "1px solid #f0f0f0" }}>
+                <p style={{ margin: 0, fontWeight: "500", color: "#344E41", fontSize: "13px" }}>📍 {trail.name}</p>
+                <p style={{ margin: "2px 0 0", fontSize: "11px", color: "#888" }}>{trail.location} · {trail.distance} km · {trail.difficulty}</p>
               </button>
             ))}
           </div>
         )}
-
-        {showSearch && searchResults.length === 0 && searchQuery && (
-          <div style={{ backgroundColor: "white", borderRadius: "15px", marginTop: "8px", padding: "12px 16px", boxShadow: "0 4px 20px rgba(0,0,0,0.15)" }}>
-            <p style={{ margin: 0, color: "#888", fontSize: "14px" }}>Nincs találat: "{searchQuery}"</p>
+        {showSearch && !searchResults.length && searchQuery && (
+          <div style={{ backgroundColor: "white", borderRadius: "14px", marginTop: "8px", padding: "12px 15px", boxShadow: "0 4px 20px rgba(0,0,0,0.15)" }}>
+            <p style={{ margin: 0, color: "#888", fontSize: "13px" }}>Nincs találat: „{searchQuery}"</p>
           </div>
         )}
       </div>
 
+      {/* ── GPS controls (bottom-left) ── */}
+      <div style={{ position: "absolute", bottom: selectedTrail ? "calc(55vh + 100px)" : "110px", left: "16px", zIndex: 1000, display: "flex", flexDirection: "column", gap: "8px", transition: "bottom 0.3s ease" }}>
+        <button
+          onClick={toggleGPS}
+          title={gpsActive ? "GPS kikapcsolás" : "GPS bekapcsolás"}
+          style={{
+            width: 44, height: 44, borderRadius: "12px",
+            backgroundColor: gpsActive ? "#2563eb" : "white",
+            color: gpsActive ? "white" : "#344E41",
+            border: "none", cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: "0 2px 12px rgba(0,0,0,0.18)",
+          }}
+        >
+          {gpsActive ? <Navigation size={20} /> : <NavigationOff size={20} />}
+        </button>
+        {gpsActive && (
+          <button
+            onClick={centerOnGPS}
+            title="Középre igazítás"
+            style={{ width: 44, height: 44, borderRadius: "12px", backgroundColor: "white", color: "#2563eb", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 12px rgba(0,0,0,0.18)", fontSize: "18px" }}
+          >
+            ⊕
+          </button>
+        )}
+      </div>
 
-      {/* Route detail panel */}
-      {routeData && (
+      {/* GPS error toast */}
+      {gpsError && (
+        <div style={{ position: "absolute", bottom: "120px", left: "16px", right: "16px", zIndex: 1001, backgroundColor: "#e74c3c", color: "white", borderRadius: "12px", padding: "10px 14px", fontSize: "13px", boxShadow: "0 2px 10px rgba(0,0,0,0.2)" }}>
+          ⚠️ {gpsError}
+        </div>
+      )}
+
+      {/* ── Trail detail panel ── */}
+      {selectedTrail && (
         <div style={{
           position: "absolute",
-          bottom: showPanel ? "90px" : "-300px",
-          left: 0, right: 0,
-          zIndex: 1002,
+          bottom: showPanel ? "85px" : "-10px",
+          left: 0, right: 0, zIndex: 1002,
           backgroundColor: "white",
-          borderRadius: "25px 25px 0 0",
-          padding: "20px",
-          paddingBottom: "30px",
-          boxShadow: "0 -4px 20px rgba(0,0,0,0.15)",
+          borderRadius: "22px 22px 0 0",
+          padding: "16px 18px 28px",
+          boxShadow: "0 -4px 24px rgba(0,0,0,0.16)",
           transition: "bottom 0.3s ease",
-          maxHeight: "55vh",
-          overflowY: "auto"
+          maxHeight: "56vh",
+          overflowY: "auto",
         }}>
-          <button
-            onClick={() => setShowPanel(!showPanel)}
-            style={{ display: "block", margin: "0 auto 12px", background: "none", border: "none", cursor: "pointer" }}
-          >
-            <div style={{ width: "40px", height: "4px", backgroundColor: "#ddd", borderRadius: "2px" }} />
+          {/* Drag handle */}
+          <button onClick={() => setShowPanel(!showPanel)} style={{ display: "block", margin: "0 auto 12px", background: "none", border: "none", cursor: "pointer", padding: "4px 20px" }}>
+            <div style={{ width: "36px", height: "4px", backgroundColor: "#ddd", borderRadius: "2px" }} />
           </button>
 
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
-            <div style={{ flex: 1 }}>
-              <h2 style={{ margin: "0 0 4px 0", fontSize: "20px", color: "#344E41" }}>{routeData.name}</h2>
-              <p style={{ margin: 0, fontSize: "13px", color: "#888" }}>📍 {routeData.location}</p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "10px" }}>
+            <div style={{ flex: 1, paddingRight: "10px" }}>
+              <h2 style={{ margin: "0 0 3px", fontSize: "19px", color: "#344E41", lineHeight: 1.2 }}>{selectedTrail.name}</h2>
+              <p style={{ margin: 0, fontSize: "12px", color: "#888" }}>📍 {selectedTrail.location}</p>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
               <span style={{
-                fontSize: "12px", padding: "4px 10px", borderRadius: "20px",
-                backgroundColor: difficultyColor[routeData.difficulty] ?? "#888",
-                color: "white", fontWeight: "500"
+                fontSize: "11px", padding: "3px 9px", borderRadius: "20px",
+                backgroundColor: DIFFICULTY_COLOR[selectedTrail.difficulty] ?? "#888",
+                color: "white", fontWeight: "600",
               }}>
-                {routeData.difficulty}
+                {selectedTrail.difficulty}
               </span>
-              <button onClick={() => { setRouteData(null); setShowPanel(false); setMapKey("default"); }} style={{ background: "none", border: "none", cursor: "pointer" }}>
-                <X size={20} color="#888" />
+              <button onClick={clearTrail} style={{ background: "none", border: "none", cursor: "pointer", padding: "2px" }}>
+                <X size={18} color="#aaa" />
               </button>
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: "16px", fontSize: "14px", color: "#555", marginBottom: "16px", flexWrap: "wrap" }}>
-            {routeData.distance && <span>📏 {routeData.distance} km</span>}
-            {routeData.duration && <span>⏱️ {routeData.duration}</span>}
-            {routeData.elevation && <span>⛰️ {routeData.elevation}m</span>}
+          <div style={{ display: "flex", gap: "18px", fontSize: "13px", color: "#555", marginBottom: "14px", flexWrap: "wrap" }}>
+            {selectedTrail.distance && <span>📏 {selectedTrail.distance} km</span>}
+            {selectedTrail.duration && <span>⏱ {selectedTrail.duration}</span>}
+            {selectedTrail.elevation && <span>⛰ {selectedTrail.elevation} m</span>}
           </div>
 
-          {routeData.description && (
-            <p style={{ fontSize: "14px", color: "#666", lineHeight: "1.6", marginBottom: "16px" }}>
-              {routeData.description}
+          {selectedTrail.description && (
+            <p style={{ fontSize: "13px", color: "#666", lineHeight: 1.65, marginBottom: "14px" }}>
+              {selectedTrail.description}
             </p>
           )}
 
-          {routeData.points_of_interest && routeData.points_of_interest.length > 0 && (
-            <div style={{ marginBottom: "16px" }}>
-              <p style={{ margin: "0 0 8px 0", fontSize: "13px", fontWeight: "600", color: "#344E41" }}>🗺️ Érdekességek</p>
-              {routeData.points_of_interest.map((poi, i) => (
-                <div key={i} style={{ display: "flex", gap: "8px", marginBottom: "6px", alignItems: "flex-start" }}>
-                  <MapPin size={14} color="#588157" style={{ flexShrink: 0, marginTop: "2px" }} />
+          {selectedTrail.points_of_interest?.length > 0 && (
+            <div style={{ marginBottom: "14px" }}>
+              <p style={{ margin: "0 0 8px", fontSize: "12px", fontWeight: "700", color: "#344E41", textTransform: "uppercase", letterSpacing: "0.05em" }}>🗺 Érdekességek</p>
+              {selectedTrail.points_of_interest.map((poi, i) => (
+                <div key={i} style={{ display: "flex", gap: "8px", marginBottom: "6px" }}>
+                  <MapPin size={13} color="#588157" style={{ flexShrink: 0, marginTop: 3 }} />
                   <div>
                     <p style={{ margin: 0, fontSize: "13px", fontWeight: "500", color: "#344E41" }}>{poi.name}</p>
-                    {poi.description && <p style={{ margin: 0, fontSize: "12px", color: "#888" }}>{poi.description}</p>}
+                    {poi.description && <p style={{ margin: 0, fontSize: "11px", color: "#888" }}>{poi.description}</p>}
                   </div>
                 </div>
               ))}
             </div>
           )}
 
-          {routeData.tags && routeData.tags.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-              {routeData.tags.map((tag) => (
-                <span key={tag} style={{ fontSize: "12px", padding: "3px 10px", borderRadius: "20px", backgroundColor: "#f0f0f0", color: "#666" }}>
+          {selectedTrail.tags?.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
+              {selectedTrail.tags.map((tag) => (
+                <span key={tag} style={{ fontSize: "11px", padding: "3px 9px", borderRadius: "20px", backgroundColor: "#f0f0f0", color: "#666" }}>
                   {tag}
                 </span>
               ))}

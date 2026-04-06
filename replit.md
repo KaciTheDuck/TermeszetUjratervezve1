@@ -92,6 +92,21 @@ Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used b
 
 Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
 
+### `artifacts/trails` (`@workspace/trails`)
+
+React + Vite + Wouter SPA — Természet újratervezve Hungarian hiking app.
+
+**Map page** (route `/`):
+- Imperative Leaflet API (not react-leaflet components) for full plugin compatibility
+- `leaflet.markercluster` — all 69 trails clustered, colored by difficulty
+- GPS tracking via `navigator.geolocation.watchPosition` — pulsing blue dot marker
+- Custom `DivIcon` trail pins (colored circles with difficulty emoji + tail)
+- Route polyline + POI layer drawn on trail select; `flyTo` / `fitBounds` animations
+- Search bar with live filtering; GPS toggle + center-on-location button
+
+**Social system**: auth (JWT + bcryptjs), posts/likes/comments, friend requests
+**DB**: 69 real Romanian hiking trails across Bucegi, Fagaraș, Retezat, Piatra Craiului, Apuseni, etc.
+
 ### `scripts` (`@workspace/scripts`)
 
 Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
