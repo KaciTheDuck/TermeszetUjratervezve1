@@ -73,12 +73,51 @@ export default function Interactive() {
 
   const hasFilters = searchName || searchLocation || selectedDifficulty || maxDistance || selectedTag;
 
+  const MY_TRAIL_NAMES = ["Nagykőhavas", "Scropoasa tó"];
+  const myTrails    = trails.filter((t) => MY_TRAIL_NAMES.some((n) => t.name.includes(n)));
+  const otherTrails = trails.filter((t) => !MY_TRAIL_NAMES.some((n) => t.name.includes(n)));
+
   const difficultyColor: Record<string, string> = {
     "Könnyű": "#588157",
     "Közepes": "#A3B18A",
     "Nehéz": "#E07B39",
     "Nagyon nehéz": "#C0392B",
   };
+
+  const TrailCard = ({ trail }: { trail: Trail }) => (
+    <div
+      onClick={() => navigate(`/?trailId=${trail.id}`)}
+      style={{ backgroundColor: "white", borderRadius: "15px", display: "flex", overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.1)", cursor: "pointer" }}
+    >
+      <img
+        src={trail.image_url ?? "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=400&q=80"}
+        alt={trail.name}
+        style={{ width: "110px", height: "110px", objectFit: "cover", flexShrink: 0 }}
+      />
+      <div style={{ padding: "14px", flex: 1, minWidth: 0 }}>
+        <h3 style={{ margin: "0 0 4px 0", fontSize: "15px", color: "#344E41", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {trail.name}
+        </h3>
+        <p style={{ margin: "0 0 8px 0", fontSize: "12px", color: "#888", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          📍 {trail.location}
+        </p>
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+          <span style={{ fontSize: "11px", color: "#666" }}>📏 {trail.distance} km</span>
+          <span style={{ fontSize: "11px", color: "#666" }}>⛰️ {trail.elevation}m</span>
+          <span style={{ fontSize: "11px", color: "#666" }}>⏱️ {trail.duration}</span>
+        </div>
+        <div style={{ marginTop: "6px" }}>
+          <span style={{
+            fontSize: "11px", padding: "2px 8px", borderRadius: "20px",
+            backgroundColor: difficultyColor[trail.difficulty] ?? "#888",
+            color: "white", fontWeight: "500"
+          }}>
+            {trail.difficulty}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div style={{ backgroundColor: "#DAD7CD", minHeight: "100vh", paddingBottom: "100px" }}>
@@ -231,40 +270,31 @@ export default function Interactive() {
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            {trails.map((trail) => (
-              <div
-                key={trail.id}
-                onClick={() => navigate(`/?trailId=${trail.id}`)}
-                style={{ backgroundColor: "white", borderRadius: "15px", display: "flex", overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.1)", cursor: "pointer" }}
-              >
-                <img
-                  src={trail.image_url ?? "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=400&q=80"}
-                  alt={trail.name}
-                  style={{ width: "110px", height: "110px", objectFit: "cover", flexShrink: 0 }}
-                />
-                <div style={{ padding: "14px", flex: 1, minWidth: 0 }}>
-                  <h3 style={{ margin: "0 0 4px 0", fontSize: "15px", color: "#344E41", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {trail.name}
-                  </h3>
-                  <p style={{ margin: "0 0 8px 0", fontSize: "12px", color: "#888", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    📍 {trail.location}
-                  </p>
-                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
-                    <span style={{ fontSize: "11px", color: "#666" }}>📏 {trail.distance} km</span>
-                    <span style={{ fontSize: "11px", color: "#666" }}>⛰️ {trail.elevation}m</span>
-                    <span style={{ fontSize: "11px", color: "#666" }}>⏱️ {trail.duration}</span>
-                  </div>
-                  <div style={{ marginTop: "6px" }}>
-                    <span style={{
-                      fontSize: "11px", padding: "2px 8px", borderRadius: "20px",
-                      backgroundColor: difficultyColor[trail.difficulty] ?? "#888",
-                      color: "white", fontWeight: "500"
-                    }}>
-                      {trail.difficulty}
-                    </span>
-                  </div>
+            {/* ── Saját túrák ── */}
+            {myTrails.length > 0 && (
+              <>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "4px" }}>
+                  <span style={{ fontSize: "12px", fontWeight: "700", color: "#344E41", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                    🥾 Saját túrák
+                  </span>
+                  <div style={{ flex: 1, height: "1px", backgroundColor: "#C5BFB5" }} />
                 </div>
-              </div>
+                {myTrails.map((trail) => (
+                  <TrailCard key={trail.id} trail={trail} />
+                ))}
+                {otherTrails.length > 0 && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "4px" }}>
+                    <span style={{ fontSize: "12px", fontWeight: "700", color: "#888", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                      Összes túra
+                    </span>
+                    <div style={{ flex: 1, height: "1px", backgroundColor: "#C5BFB5" }} />
+                  </div>
+                )}
+              </>
+            )}
+            {/* ── Other trails ── */}
+            {otherTrails.map((trail) => (
+              <TrailCard key={trail.id} trail={trail} />
             ))}
           </div>
         )}
