@@ -71,7 +71,7 @@ router.post("/friends/request", requireAuth, async (req: AuthRequest, res) => {
 
 router.post("/friends/:id/accept", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(req.params.id as string, 10);
     const [f] = await db.select().from(friendshipsTable).where(eq(friendshipsTable.id, id));
     if (!f || f.receiver_id !== req.userId) { res.status(403).json({ error: "Nincs jogosultság" }); return; }
     await db.update(friendshipsTable).set({ status: "accepted" }).where(eq(friendshipsTable.id, id));
@@ -84,7 +84,7 @@ router.post("/friends/:id/accept", requireAuth, async (req: AuthRequest, res) =>
 
 router.post("/friends/:id/reject", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(req.params.id as string, 10);
     await db.delete(friendshipsTable).where(eq(friendshipsTable.id, id));
     res.json({ ok: true });
   } catch (err) {

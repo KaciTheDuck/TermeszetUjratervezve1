@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ElementType } from "react";
 import { motion } from "framer-motion";
 import {
   Settings as SettingsIcon,
@@ -17,7 +17,19 @@ import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 
-const settingsGroups = [
+interface SettingsItem {
+  icon: ElementType;
+  label: string;
+  type: "toggle" | "link";
+  key?: string;
+  value?: string;
+}
+interface SettingsGroup {
+  title: string;
+  items: SettingsItem[];
+}
+
+const settingsGroups: SettingsGroup[] = [
   {
     title: "Preferences",
     items: [

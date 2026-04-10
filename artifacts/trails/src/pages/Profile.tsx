@@ -23,9 +23,11 @@ interface UserData {
 type SettingsView = "main" | "edit-profile" | "change-password" | "privacy" | "notifications";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function authHeaders() {
+function authHeaders(): Record<string, string> {
   const token = localStorage.getItem(TOKEN_KEY);
-  return token ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } : { "Content-Type": "application/json" };
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return headers;
 }
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {

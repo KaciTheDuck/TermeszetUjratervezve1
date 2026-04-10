@@ -67,7 +67,7 @@ router.post("/posts", requireAuth, async (req: AuthRequest, res) => {
 
 router.delete("/posts/:id", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(req.params.id as string, 10);
     const [post] = await db.select({ user_id: postsTable.user_id }).from(postsTable).where(eq(postsTable.id, id));
     if (!post) { res.status(404).json({ error: "Nem található" }); return; }
     if (post.user_id !== req.userId) { res.status(403).json({ error: "Nincs jogosultság" }); return; }
@@ -81,7 +81,7 @@ router.delete("/posts/:id", requireAuth, async (req: AuthRequest, res) => {
 
 router.post("/posts/:id/like", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const postId = parseInt(req.params.id, 10);
+    const postId = parseInt(req.params.id as string, 10);
     const existing = await db.select().from(likesTable).where(
       and(eq(likesTable.user_id, req.userId!), eq(likesTable.post_id, postId))
     );
@@ -100,7 +100,7 @@ router.post("/posts/:id/like", requireAuth, async (req: AuthRequest, res) => {
 
 router.get("/posts/:id/comments", async (req, res) => {
   try {
-    const postId = parseInt(req.params.id, 10);
+    const postId = parseInt(req.params.id as string, 10);
     const comments = await db
       .select({
         id: commentsTable.id,
@@ -124,7 +124,7 @@ router.get("/posts/:id/comments", async (req, res) => {
 
 router.post("/posts/:id/comments", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const postId = parseInt(req.params.id, 10);
+    const postId = parseInt(req.params.id as string, 10);
     const { content } = req.body;
     if (!content?.trim()) { res.status(400).json({ error: "Üres hozzászólás" }); return; }
     const [comment] = await db.insert(commentsTable).values({ user_id: req.userId!, post_id: postId, content: content.trim() }).returning();

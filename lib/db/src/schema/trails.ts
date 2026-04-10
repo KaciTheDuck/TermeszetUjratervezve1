@@ -8,7 +8,6 @@ import {
   timestamp,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { z } from "zod";
 
 export const trailsTable = pgTable("trails", {
   id: serial("id").primaryKey(),
@@ -40,4 +39,4 @@ export const insertTrailSchema = createInsertSchema(trailsTable).omit({
 export const selectTrailSchema = createSelectSchema(trailsTable);
 
 export type Trail = typeof trailsTable.$inferSelect;
-export type InsertTrail = z.infer<typeof insertTrailSchema>;
+export type InsertTrail = typeof trailsTable.$inferInsert;
