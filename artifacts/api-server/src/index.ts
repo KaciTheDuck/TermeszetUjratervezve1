@@ -1,5 +1,8 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { db, trailsTable } from "@workspace/db";
+import { seedTrails } from "@workspace/db/seed-trails";
+import { count } from "drizzle-orm";
 
 const rawPort = process.env["PORT"];
 
@@ -15,11 +18,26 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-app.listen(port, (err) => {
-  if (err) {
-    logger.error({ err }, "Error listening on port");
-    process.exit(1);
+async function autoSeedIfEmpty() {
+  try {
+    const [{ value }] = await db.select({ value: count() }).from(trailsTable);
+    if (value === 0) {
+      logger.info("Trails table is empty — seeding trail data...");
+      await seedTrails();
+      logger.info("Trail seeding complete");
+    }
+  } catch (err) {
+    logger.warn({ err }, "Auto-seed check failed, continuing without seed");
   }
+}
 
-  logger.info({ port }, "Server listening");
+autoSeedIfEmpty().then(() => {
+  app.listen(port, (err) => {
+    if (err) {
+      logger.error({ err }, "Error listening on port");
+      process.exit(1);
+    }
+
+    logger.info({ port }, "Server listening");
+  });
 });

@@ -784,13 +784,14 @@ const trails: Trail[] = [
   },
 ];
 
-async function seedTrails() {
+export async function seedTrails() {
   console.log(`Seeding ${trails.length} trails...`);
   for (const trail of trails) {
     await db.insert(trailsTable).values(trail).onConflictDoNothing();
   }
-  console.log("Done.");
-  process.exit(0);
+  console.log(`Done seeding ${trails.length} trails.`);
 }
 
-seedTrails().catch((err) => { console.error(err); process.exit(1); });
+if (process.argv[1]?.endsWith("seed-trails.ts") || process.argv[1]?.endsWith("seed-trails.js")) {
+  seedTrails().then(() => process.exit(0)).catch((err) => { console.error(err); process.exit(1); });
+}
